@@ -7,6 +7,8 @@ import '../../features/wardrobe/presentation/screens/wardrobe_screen.dart';
 import '../../features/wardrobe/presentation/screens/item_detail_screen.dart';
 import '../../features/wardrobe/presentation/screens/edit_item_screen.dart';
 import '../../features/add_item/presentation/screens/add_item_screen.dart';
+import '../../features/add_item/presentation/screens/camera_capture_screen.dart';
+import '../../features/add_item/presentation/screens/item_tagging_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 
 /// Riverpod provider exposing the app's [GoRouter] instance.
@@ -47,6 +49,18 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.addItem,
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: AddItemScreen()),
+            routes: [
+              GoRoute(
+                path: AppRoutes.addItemCamera,
+                builder: (context, state) => const CameraCaptureScreen(),
+              ),
+              GoRoute(
+                path: AppRoutes.addItemTagging,
+                builder: (context, state) => ItemTaggingScreen(
+                  imagePath: state.extra as String,
+                ),
+              ),
+            ],
           ),
         ],
       ),
