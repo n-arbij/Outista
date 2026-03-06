@@ -7,6 +7,9 @@ class AppConstants {
   static const int occasionMatchScore = 35;
   static const int usageBalanceMaxScore = 25;
   static const int emotionalTagBonus = 15;
+  static const int confidentTagBonus = 10;
+  static const int allNewDiversityBonus = 8;
+  static const int noRecentWearDiversityBonus = 5;
 
   /// Number of days over which recent-wear penalty fades to zero.
   static const double recentWearPenaltyDays = 7.0;
