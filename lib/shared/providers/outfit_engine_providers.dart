@@ -1,11 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/datasources/local/local_clothing_datasource.dart';
 import '../../data/datasources/local/local_outfit_datasource.dart';
-import '../../features/context_awareness/calendar/calendar_service.dart';
-import '../../features/context_awareness/weather/weather_service.dart';
 import '../../features/outfit_engine/domain/usecases/generate_outfit_usecase.dart';
 import '../../features/outfit_engine/engine/outfit_scoring_engine.dart';
 import '../../features/outfit_engine/models/outfit_generation_result.dart';
+import 'context_awareness_providers.dart';
 import 'repository_providers.dart';
 
 // ─── Pure services ───────────────────────────────────────────────────────────
@@ -13,16 +12,6 @@ import 'repository_providers.dart';
 /// Provides the stateless [OutfitScoringEngine].
 final outfitScoringEngineProvider = Provider<OutfitScoringEngine>(
   (_) => const OutfitScoringEngine(),
-);
-
-/// Provides the [WeatherService] used by the generation pipeline.
-final weatherServiceProvider = Provider<WeatherService>(
-  (_) => WeatherService(),
-);
-
-/// Provides the [CalendarService] used by the generation pipeline.
-final calendarServiceProvider = Provider<CalendarService>(
-  (_) => CalendarService(),
 );
 
 // ─── Use case ────────────────────────────────────────────────────────────────
