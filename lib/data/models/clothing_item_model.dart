@@ -1,21 +1,26 @@
-import 'package:outista/core/constants/app_enums.dart';
+import '../../core/constants/app_enums.dart';
 
+/// Domain model representing a single clothing item in the wardrobe.
 class ClothingItemModel {
   final String id;
-  final String name;
+  final String imagePath;
   final ClothingCategory category;
-  final List<Season> seasons;
-  final List<Formality> formalities;
-  final String? imagePath;
+  final ClothingSeason season;
+  final ClothingOccasion occasion;
+  final EmotionalTag emotionalTag;
+  final int usageCount;
   final DateTime createdAt;
+  final DateTime? lastWornAt;
 
   const ClothingItemModel({
     required this.id,
-    required this.name,
+    required this.imagePath,
     required this.category,
-    required this.seasons,
-    required this.formalities,
-    this.imagePath,
+    required this.season,
+    required this.occasion,
+    this.emotionalTag = EmotionalTag.none,
+    this.usageCount = 0,
     required this.createdAt,
+    this.lastWornAt,
   });
 }

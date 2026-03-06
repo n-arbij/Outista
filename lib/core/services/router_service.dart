@@ -1,27 +1,55 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:outista/core/constants/app_routes.dart';
-import 'package:outista/shared/widgets/app_shell.dart';
+import '../constants/app_routes.dart';
+import '../../features/home/presentation/screens/home_screen.dart';
+import '../../features/wardrobe/presentation/screens/wardrobe_screen.dart';
+import '../../features/wardrobe/presentation/screens/item_detail_screen.dart';
+import '../../features/wardrobe/presentation/screens/edit_item_screen.dart';
+import '../../features/add_item/presentation/screens/add_item_screen.dart';
+import '../../shared/widgets/app_shell.dart';
 
-final GoRouter appRouter = GoRouter(
-  initialLocation: AppRoutes.home,
-  routes: [
-    ShellRoute(
-      builder: (context, state, child) => AppShell(child: child),
-      routes: [
-        GoRoute(
-          path: AppRoutes.home,
-          builder: (context, state) => const Placeholder(),
-        ),
-        GoRoute(
-          path: AppRoutes.wardrobe,
-          builder: (context, state) => const Placeholder(),
-        ),
-        GoRoute(
-          path: AppRoutes.addItem,
-          builder: (context, state) => const Placeholder(),
-        ),
-      ],
-    ),
-  ],
-);
+/// Riverpod provider exposing the app's [GoRouter] instance.
+final routerProvider = Provider<GoRouter>((ref) {
+  return GoRouter(
+    initialLocation: AppRoutes.home,
+    routes: [
+      ShellRoute(
+        builder: (context, state, child) => AppShell(child: child),
+        routes: [
+          GoRoute(
+            path: AppRoutes.home,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: HomeScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.wardrobe,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: WardrobeScreen()),
+            routes: [
+              GoRoute(
+                path: AppRoutes.wardrobeItem,
+                builder: (context, state) => ItemDetailScreen(
+                  id: state.pathParameters['id']!,
+                ),
+                routes: [
+                  GoRoute(
+                    path: AppRoutes.wardrobeItemEdit,
+                    builder: (context, state) => EditItemScreen(
+                      id: state.pathParameters['id']!,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          GoRoute(
+            path: AppRoutes.addItem,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: AddItemScreen()),
+          ),
+        ],
+      ),
+    ],
+  );
+});

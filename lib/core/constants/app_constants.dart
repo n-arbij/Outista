@@ -1,16 +1,32 @@
+/// App-wide constants for scoring, API config, image capture, and database.
 class AppConstants {
   AppConstants._();
 
-  // Scoring weights (Module 5)
-  static const double weightWeather = 0.4;
-  static const double weightCalendar = 0.3;
-  static const double weightRecency = 0.2;
-  static const double weightPreference = 0.1;
+  // --- Outfit Scoring Weights ---
+  static const int seasonMatchScore = 40;
+  static const int occasionMatchScore = 35;
+  static const int usageBalanceMaxScore = 25;
+  static const int emotionalTagBonus = 15;
 
-  // Weather API
-  static const String openMeteoBaseUrl = 'https://api.open-meteo.com/v1';
+  /// Number of days over which recent-wear penalty fades to zero.
+  static const double recentWearPenaltyDays = 7.0;
 
-  // Outfit engine thresholds
-  static const int maxOutfitSuggestions = 5;
-  static const int recentWearCooldownDays = 3;
+  // --- Weather API ---
+  static const String weatherApiBaseUrl = 'https://api.open-meteo.com/v1';
+
+  /// How long a weather response is considered fresh before re-fetching.
+  static const int weatherCacheDurationHours = 3;
+
+  // --- Temperature Thresholds (°C) ---
+  static const double hotTempThreshold = 25.0;
+  static const double coldTempThreshold = 15.0;
+
+  // --- Image Capture ---
+  static const double imageCaptureQuality = 0.85;
+  static const int imageMaxWidth = 800;
+  static const int imageMaxHeight = 800;
+
+  // --- Database ---
+  static const String databaseName = 'outista.db';
+  static const int databaseVersion = 1;
 }

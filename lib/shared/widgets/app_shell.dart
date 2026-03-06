@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:outista/core/constants/app_routes.dart';
+import '../../core/constants/app_routes.dart';
 
-// Module 8 — Bottom navigation shell
+/// Bottom navigation shell wrapping the three main tab routes.
 class AppShell extends StatelessWidget {
   final Widget child;
 
@@ -14,12 +14,23 @@ class AppShell extends StatelessWidget {
       body: child,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex(context),
-        onDestinationSelected: (index) => _onTap(context, index),
+        onDestinationSelected: (i) => _onTap(context, i),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
           NavigationDestination(
-              icon: Icon(Icons.checkroom_outlined), label: 'Wardrobe'),
-          NavigationDestination(icon: Icon(Icons.add_circle_outline), label: 'Add'),
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.checkroom_outlined),
+            selectedIcon: Icon(Icons.checkroom),
+            label: 'Wardrobe',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.add_a_photo_outlined),
+            selectedIcon: Icon(Icons.add_a_photo),
+            label: 'Add Item',
+          ),
         ],
       ),
     );
