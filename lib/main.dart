@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
@@ -7,6 +8,17 @@ import 'shared/providers/database_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Global Flutter error handler.
+  FlutterError.onError = (details) {
+    debugPrint('[Outista] Flutter error: ${details.exceptionAsString()}');
+  };
+
+  // Global platform/isolate error handler.
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('[Outista] Platform error: $error');
+    return true;
+  };
 
   final db = AppDatabase();
   // Warm up the database connection before rendering.
