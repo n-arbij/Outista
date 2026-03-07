@@ -1,5 +1,4 @@
 import 'package:device_calendar/device_calendar.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../../../core/constants/app_enums.dart';
 import 'models/calendar_event_summary.dart';
 
