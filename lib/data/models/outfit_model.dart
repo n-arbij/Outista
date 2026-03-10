@@ -10,6 +10,7 @@ class OutfitModel {
   final String weatherContext;
   final DateTime generatedAt;
   final bool wasWorn;
+  final bool isUserAdded;
 
   const OutfitModel({
     required this.id,
@@ -22,5 +23,6 @@ class OutfitModel {
     required this.weatherContext,
     required this.generatedAt,
     this.wasWorn = false,
+    this.isUserAdded = false,
   });
 }

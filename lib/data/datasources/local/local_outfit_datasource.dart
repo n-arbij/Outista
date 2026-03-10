@@ -78,7 +78,11 @@ class LocalOutfitDatasource implements OutfitRepository {
   /// Saves [outfits] in a single transaction, skipping any whose item
   /// combination (topId, bottomId, shoesId, outerwearId) already exists
   /// for today to prevent duplicates.
-  Future<void> saveAll(List<OutfitModel> outfits) async {
+  ///
+  /// Set [isUserAdded] to `true` when saving user-requested outfits (via "+");
+  /// `false` (default) marks them as machine-generated and protects them from deletion.
+  Future<void> saveAll(List<OutfitModel> outfits,
+      {bool isUserAdded = false}) async {
     if (outfits.isEmpty) return;
     try {
       final existing = await getTodaysOutfits();
@@ -97,7 +101,20 @@ class LocalOutfitDatasource implements OutfitRepository {
           );
           if (existingCombos.contains(combo)) continue;
           existingCombos.add(combo);
-          await _db.into(_db.outfits).insert(_modelToCompanion(outfit));
+          final tagged = OutfitModel(
+            id: outfit.id,
+            topId: outfit.topId,
+            bottomId: outfit.bottomId,
+            shoesId: outfit.shoesId,
+            outerwearId: outfit.outerwearId,
+            score: outfit.score,
+            occasionContext: outfit.occasionContext,
+            weatherContext: outfit.weatherContext,
+            generatedAt: outfit.generatedAt,
+            wasWorn: outfit.wasWorn,
+            isUserAdded: isUserAdded,
+          );
+          await _db.into(_db.outfits).insert(_modelToCompanion(tagged));
           if (outfit.wasWorn) {
             for (final itemId in _itemIdsOf(outfit)) {
               await _clothing.recordWear(itemId);
@@ -258,6 +275,7 @@ class LocalOutfitDatasource implements OutfitRepository {
         weatherContext: row.weatherContext,
         generatedAt: row.generatedAt,
         wasWorn: row.wasWorn,
+        isUserAdded: row.isUserAdded,
       );
 
   OutfitsCompanion _modelToCompanion(OutfitModel model) =>
@@ -272,6 +290,7 @@ class LocalOutfitDatasource implements OutfitRepository {
         weatherContext: model.weatherContext,
         generatedAt: model.generatedAt,
         wasWorn: Value(model.wasWorn),
+        isUserAdded: Value(model.isUserAdded),
       );
 
   List<String> _itemIdsOf(OutfitModel model) => [

@@ -251,7 +251,9 @@ class _HomeBody extends ConsumerWidget {
               padding: const EdgeInsets.only(bottom: 16),
               child: Dismissible(
                 key: ValueKey(outfit.id),
-                direction: DismissDirection.endToStart,
+                direction: outfit.isUserAdded
+                    ? DismissDirection.endToStart
+                    : DismissDirection.none,
                 confirmDismiss: (_) async {
                   await onDelete(outfit);
                   // Return false — deletion is handled via the dialog/repo;
@@ -332,14 +334,15 @@ class _OutfitListItem extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            IconButton.outlined(
-              onPressed: onDelete,
-              icon: Icon(Icons.delete_outline, color: Colors.red.shade400),
-              tooltip: 'Remove outfit',
-              style: IconButton.styleFrom(
-                side: BorderSide(color: Colors.red.shade200),
+            if (outfit.isUserAdded)
+              IconButton.outlined(
+                onPressed: onDelete,
+                icon: Icon(Icons.delete_outline, color: Colors.red.shade400),
+                tooltip: 'Remove outfit',
+                style: IconButton.styleFrom(
+                  side: BorderSide(color: Colors.red.shade200),
+                ),
               ),
-            ),
           ],
         ),
       ],

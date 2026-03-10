@@ -18,7 +18,8 @@ abstract interface class OutfitRepository {
   ///
   /// Implementations should skip outfits whose item combination
   /// (topId, bottomId, shoesId, outerwearId) already exists for today.
-  Future<void> saveAll(List<OutfitModel> outfits);
+  /// Set [isUserAdded] to `true` when called from a user-triggered action.
+  Future<void> saveAll(List<OutfitModel> outfits, {bool isUserAdded = false});
 
   /// Returns all outfits generated today, ordered by score descending.
   Future<List<OutfitModel>> getTodaysOutfits();

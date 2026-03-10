@@ -57,6 +57,11 @@ class Outfits extends Table {
   DateTimeColumn get generatedAt => dateTime()();
   BoolColumn get wasWorn => boolean().withDefault(const Constant(false))();
 
+  /// Whether this outfit was explicitly requested by the user via the "+" button.
+  /// `false` = machine-generated on app load; protected from deletion.
+  BoolColumn get isUserAdded =>
+      boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -90,7 +95,9 @@ class AppDatabase extends _$AppDatabase {
           await m.createAll();
         },
         onUpgrade: (m, from, to) async {
-          // Future schema migrations are added here.
+          if (from < 2) {
+            await m.addColumn(outfits, outfits.isUserAdded);
+          }
         },
       );
 

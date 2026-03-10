@@ -67,11 +67,11 @@ class GenerateOutfitUseCase {
   /// Unconditionally generates a fresh batch of outfits and appends them to
   /// today's list. Duplicate item combinations are filtered out by
   /// [LocalOutfitDatasource.saveAll].
-  Future<OutfitGenerationResult> regenerate() => _generate();
+  Future<OutfitGenerationResult> regenerate() => _generate(isUserAdded: true);
 
   // ─── Internal ──────────────────────────────────────────────────────────────
 
-  Future<OutfitGenerationResult> _generate() async {
+  Future<OutfitGenerationResult> _generate({bool isUserAdded = false}) async {
     final wardrobe = await _clothingRepository.getAllItems();
     if (wardrobe.isEmpty) {
       throw DataException('Wardrobe is empty');
@@ -86,7 +86,7 @@ class GenerateOutfitUseCase {
     if (!result.isEmpty) {
       try {
         final all = result.allOutfits.map((s) => s.outfit).toList();
-        await _outfitRepository.saveAll(all);
+        await _outfitRepository.saveAll(all, isUserAdded: isUserAdded);
       } catch (_) {
         // Save failure is non-fatal — still return the result.
       }
