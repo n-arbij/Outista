@@ -70,6 +70,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             formattedDate: formattedDate,
             onAddMore: _onAddMore,
             onWearToday: _onWearToday,
+            onDelete: _onDeleteOutfit,
           ),
         ),
       ),
@@ -83,6 +84,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       await ref.read(regenerateOutfitProvider)();
     } finally {
       if (mounted) setState(() => _isAddingMore = false);
+    }
+  }
+
+  Future<void> _onDeleteOutfit(OutfitModel outfit) async {
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove outfit?'),
+        content: const Text('This outfit will be removed from today\'s list.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+            ),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await ref.read(outfitRepositoryProvider).delete(outfit.id);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not remove outfit — try again')),
+      );
     }
   }
 
@@ -132,6 +166,7 @@ class _HomeBody extends ConsumerWidget {
   final String formattedDate;
   final VoidCallback onAddMore;
   final Future<void> Function(OutfitModel, List<ClothingItemModel>) onWearToday;
+  final Future<void> Function(OutfitModel) onDelete;
 
   const _HomeBody({
     required this.outfits,
@@ -143,6 +178,7 @@ class _HomeBody extends ConsumerWidget {
     required this.formattedDate,
     required this.onAddMore,
     required this.onWearToday,
+    required this.onDelete,
   });
 
   @override
@@ -213,10 +249,31 @@ class _HomeBody extends ConsumerWidget {
             final items = _resolveItems(outfit, itemsById);
             return Padding(
               padding: const EdgeInsets.only(bottom: 16),
-              child: _OutfitListItem(
-                outfit: outfit,
-                items: items,
-                onWearToday: () => onWearToday(outfit, items),
+              child: Dismissible(
+                key: ValueKey(outfit.id),
+                direction: DismissDirection.endToStart,
+                confirmDismiss: (_) async {
+                  await onDelete(outfit);
+                  // Return false — deletion is handled via the dialog/repo;
+                  // the stream re-emits and removes the card reactively.
+                  return false;
+                },
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 24),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade100,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Icon(Icons.delete_outline,
+                      color: Colors.red.shade600, size: 28),
+                ),
+                child: _OutfitListItem(
+                  outfit: outfit,
+                  items: items,
+                  onWearToday: () => onWearToday(outfit, items),
+                  onDelete: () => onDelete(outfit),
+                ),
               ),
             );
           }),
@@ -244,11 +301,13 @@ class _OutfitListItem extends StatelessWidget {
   final OutfitModel outfit;
   final List<ClothingItemModel> items;
   final VoidCallback onWearToday;
+  final VoidCallback onDelete;
 
   const _OutfitListItem({
     required this.outfit,
     required this.items,
     required this.onWearToday,
+    required this.onDelete,
   });
 
   @override
@@ -262,10 +321,26 @@ class _OutfitListItem extends StatelessWidget {
           isWorn: outfit.wasWorn,
         ),
         const SizedBox(height: 8),
-        FilledButton.icon(
-          onPressed: outfit.wasWorn ? null : onWearToday,
-          icon: Icon(outfit.wasWorn ? Icons.check : Icons.checkroom_outlined),
-          label: Text(outfit.wasWorn ? 'Worn Today' : 'Wear This Today'),
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: outfit.wasWorn ? null : onWearToday,
+                icon: Icon(
+                    outfit.wasWorn ? Icons.check : Icons.checkroom_outlined),
+                label: Text(outfit.wasWorn ? 'Worn Today' : 'Wear This Today'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton.outlined(
+              onPressed: onDelete,
+              icon: Icon(Icons.delete_outline, color: Colors.red.shade400),
+              tooltip: 'Remove outfit',
+              style: IconButton.styleFrom(
+                side: BorderSide(color: Colors.red.shade200),
+              ),
+            ),
+          ],
         ),
       ],
     );
