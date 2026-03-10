@@ -31,6 +31,12 @@ class _FakeOutfitRepository implements OutfitRepository {
   @override
   Future<void> save(OutfitModel outfit) async {}
   @override
+  Future<void> saveAll(List<OutfitModel> outfits) async {}
+  @override
+  Future<List<OutfitModel>> getTodaysOutfits() async => [];
+  @override
+  Stream<List<OutfitModel>> watchTodaysOutfits() => const Stream.empty();
+  @override
   Future<void> markAsWorn(String id) async {}
   @override
   Future<void> delete(String id) async {}

@@ -61,6 +61,60 @@ class LocalOutfitDatasource implements OutfitRepository {
     }
   }
 
+  /// Returns all outfits generated today, ordered by score descending.
+  Future<List<OutfitModel>> getTodaysOutfits() async {
+    try {
+      final rows = await _todaysQuery().get();
+      return rows.map(_rowToModel).toList();
+    } catch (e) {
+      assert(() {
+        debugPrint('[Outista] getTodaysOutfits error: $e');
+        return true;
+      }());
+      throw DataException("Failed to get today's outfits", cause: e);
+    }
+  }
+
+  /// Saves [outfits] in a single transaction, skipping any whose item
+  /// combination (topId, bottomId, shoesId, outerwearId) already exists
+  /// for today to prevent duplicates.
+  Future<void> saveAll(List<OutfitModel> outfits) async {
+    if (outfits.isEmpty) return;
+    try {
+      final existing = await getTodaysOutfits();
+      final existingCombos = {
+        for (final o in existing)
+          (o.topId, o.bottomId, o.shoesId, o.outerwearId),
+      };
+
+      await _db.transaction(() async {
+        for (final outfit in outfits) {
+          final combo = (
+            outfit.topId,
+            outfit.bottomId,
+            outfit.shoesId,
+            outfit.outerwearId,
+          );
+          if (existingCombos.contains(combo)) continue;
+          existingCombos.add(combo);
+          await _db.into(_db.outfits).insert(_modelToCompanion(outfit));
+          if (outfit.wasWorn) {
+            for (final itemId in _itemIdsOf(outfit)) {
+              await _clothing.recordWear(itemId);
+            }
+          }
+        }
+      });
+    } catch (e) {
+      assert(() {
+        debugPrint('[Outista] saveAll error: $e');
+        return true;
+      }());
+      if (e is DataException) rethrow;
+      throw DataException('Failed to save outfits', cause: e);
+    }
+  }
+
   /// Sets [wasWorn] to `true` on the outfit, calls [recordWear] for each
   /// item (updates usage count / lastWornAt + inserts an item-level
   /// [WearLog]), and also inserts outfit-linked [WearLog] rows.
@@ -131,6 +185,12 @@ class LocalOutfitDatasource implements OutfitRepository {
         .map((rows) => rows.isEmpty ? null : _rowToModel(rows.first));
   }
 
+  /// Emits all outfits generated today (score DESC) and re-emits on any
+  /// change to the outfits table.
+  Stream<List<OutfitModel>> watchTodaysOutfits() {
+    return _todaysQuery().watch().map((rows) => rows.map(_rowToModel).toList());
+  }
+
   // ─── OutfitRepository interface ────────────────────────────────────────────
 
   @override
@@ -184,8 +244,7 @@ class LocalOutfitDatasource implements OutfitRepository {
       ..where((t) =>
           t.generatedAt.isBiggerOrEqualValue(startOfDay) &
           t.generatedAt.isSmallerThanValue(endOfDay))
-      ..orderBy([(t) => OrderingTerm.desc(t.score)])
-      ..limit(1);
+      ..orderBy([(t) => OrderingTerm.desc(t.score)]);
   }
 
   OutfitModel _rowToModel(Outfit row) => OutfitModel(

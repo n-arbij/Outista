@@ -37,6 +37,19 @@ class ScoredOutfit {
       'Usage: ${usageScore.toStringAsFixed(0)}/25 | '
       'Bonus: +${bonusScore.toStringAsFixed(0)}';
 
+  /// Creates a [ScoredOutfit] from a stored [OutfitModel].
+  ///
+  /// Only [totalScore] is populated from the stored value; sub-scores
+  /// are unavailable after persistence and default to zero.
+  factory ScoredOutfit.fromModel(OutfitModel model) => ScoredOutfit(
+        outfit: model,
+        totalScore: model.score,
+        seasonScore: 0,
+        occasionScore: 0,
+        usageScore: 0,
+        bonusScore: 0,
+      );
+
   /// Returns a copy with selected fields replaced.
   ScoredOutfit copyWith({
     OutfitModel? outfit,

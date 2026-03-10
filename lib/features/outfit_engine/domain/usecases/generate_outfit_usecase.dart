@@ -35,33 +35,25 @@ class GenerateOutfitUseCase {
 
   /// Generates and returns today's outfit recommendation.
   ///
-  /// If a fresh (unworn) outfit was already generated today it is returned
-  /// directly. If the cached outfit was already marked as worn, a new
-  /// generation pass is performed.
+  /// If outfits were already generated today they are returned directly
+  /// without re-running the engine. Call [regenerate] to append new outfits.
   ///
   /// Throws [DataException] when the wardrobe is empty.
   Future<OutfitGenerationResult> call() async {
-    // Return cached outfit if it was not yet worn today.
     try {
-      final existing = await _outfitRepository.getTodaysOutfit();
-      if (existing != null && !existing.wasWorn) {
+      final existing = await _outfitRepository.getTodaysOutfits();
+      if (existing.isNotEmpty) {
         final context = OutfitContext(
           weatherSeason: WeatherSeason.allWeather,
           eventType: CalendarEventType.casual,
           date: DateTime.now(),
         );
+        final scored = existing.map(ScoredOutfit.fromModel).toList();
         return OutfitGenerationResult(
-          primary: ScoredOutfit(
-            outfit: existing,
-            totalScore: existing.score,
-            seasonScore: 0,
-            occasionScore: 0,
-            usageScore: 0,
-            bonusScore: 0,
-          ),
-          alternatives: [],
+          primary: scored.first,
+          alternatives: scored.skip(1).toList(),
           context: context,
-          generatedAt: existing.generatedAt,
+          generatedAt: existing.first.generatedAt,
           totalCombinationsEvaluated: 0,
         );
       }
@@ -72,7 +64,9 @@ class GenerateOutfitUseCase {
     return _generate();
   }
 
-  /// Unconditionally generates a fresh outfit, ignoring any cached result.
+  /// Unconditionally generates a fresh batch of outfits and appends them to
+  /// today's list. Duplicate item combinations are filtered out by
+  /// [LocalOutfitDatasource.saveAll].
   Future<OutfitGenerationResult> regenerate() => _generate();
 
   // ─── Internal ──────────────────────────────────────────────────────────────
@@ -91,7 +85,8 @@ class GenerateOutfitUseCase {
 
     if (!result.isEmpty) {
       try {
-        await _outfitRepository.saveOutfit(result.primary!.outfit);
+        final all = result.allOutfits.map((s) => s.outfit).toList();
+        await _outfitRepository.saveAll(all);
       } catch (_) {
         // Save failure is non-fatal — still return the result.
       }

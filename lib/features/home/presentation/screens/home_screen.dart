@@ -3,24 +3,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../../core/constants/app_enums.dart';
 import '../../../../data/models/clothing_item_model.dart';
+import '../../../../data/models/outfit_model.dart';
 import '../../../../features/context_awareness/weather/models/weather_data.dart';
-import '../../../../features/outfit_engine/models/outfit_generation_result.dart';
 import '../../../../features/outfit_engine/models/scored_outfit.dart';
 import '../../../../shared/providers/context_awareness_providers.dart';
 import '../../../../shared/providers/home_providers.dart';
 import '../../../../shared/providers/outfit_engine_providers.dart';
 import '../../../../shared/providers/repository_providers.dart';
-import '../widgets/alternatives_carousel.dart';
 import '../widgets/context_banner.dart';
 import '../widgets/empty_wardrobe_banner.dart';
 import '../widgets/outfit_card.dart';
 import '../widgets/permission_banner.dart';
 import '../widgets/wear_confirm_sheet.dart';
 
-/// Main home screen — shows today's outfit recommendation.
+/// Main home screen — shows today's outfit recommendations.
 ///
-/// Consumes [outfitGenerationResultProvider] for the outfit data,
-/// [currentWeatherProvider] and [todaysEventTypeProvider] for context badges.
+/// Displays all outfits generated for today as a scrollable list.
+/// Each outfit can be independently marked as worn.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -29,24 +28,23 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  bool _isRegenerating = false;
+  bool _isAddingMore = false;
 
   @override
   void initState() {
     super.initState();
-    // Pre-warm the outfit generation future.
+    // Trigger initial outfit generation.
     ref.read(outfitGenerationResultProvider);
   }
 
   @override
   Widget build(BuildContext context) {
-    final outfitAsync = ref.watch(outfitGenerationResultProvider);
+    final outfitsAsync = ref.watch(todaysOutfitsProvider);
     final weatherAsync = ref.watch(currentWeatherProvider);
     final eventTypeAsync = ref.watch(todaysEventTypeProvider);
     final calendarPermission = ref.watch(calendarPermissionProvider);
     final greeting = ref.watch(homeGreetingProvider);
     final formattedDate = ref.watch(formattedTodayProvider);
-    final isWorn = ref.watch(isOutfitWornProvider);
 
     final weather = weatherAsync.asData?.value;
     final eventType =
@@ -56,22 +54,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       body: SafeArea(
-        child: outfitAsync.when(
+        child: outfitsAsync.when(
           loading: () => const _HomeLoadingState(),
           error: (err, _) => _HomeErrorState(
             message: err.toString(),
-            onRetry: () => ref.invalidate(outfitGenerationResultProvider),
+            onRetry: () => ref.invalidate(todaysOutfitsProvider),
           ),
-          data: (result) => _HomeBody(
-            result: result,
+          data: (outfits) => _HomeBody(
+            outfits: outfits,
             weather: weather,
             eventType: eventType,
-            isWorn: isWorn,
-            isRegenerating: _isRegenerating,
+            isAddingMore: _isAddingMore,
             calendarGranted: calendarGranted,
             greeting: greeting,
             formattedDate: formattedDate,
-            onRegenerate: _onRegenerate,
+            onAddMore: _onAddMore,
             onWearToday: _onWearToday,
           ),
         ),
@@ -79,21 +76,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Future<void> _onRegenerate() async {
-    if (_isRegenerating) return;
-    setState(() => _isRegenerating = true);
+  Future<void> _onAddMore() async {
+    if (_isAddingMore) return;
+    setState(() => _isAddingMore = true);
     try {
       await ref.read(regenerateOutfitProvider)();
-      if (!mounted) return;
-      ref.invalidate(outfitGenerationResultProvider);
-      ref.read(selectedOutfitProvider.notifier).select(null);
-      ref.read(isOutfitWornProvider.notifier).reset();
     } finally {
-      if (mounted) setState(() => _isRegenerating = false);
+      if (mounted) setState(() => _isAddingMore = false);
     }
   }
 
-  Future<void> _onWearToday(ScoredOutfit scored,
+  Future<void> _onWearToday(OutfitModel outfit,
       List<ClothingItemModel> items) async {
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
@@ -102,7 +95,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) => WearConfirmSheet(
-        scoredOutfit: scored,
+        scoredOutfit: ScoredOutfit.fromModel(outfit),
         items: items,
         onConfirm: () => Navigator.of(context).pop(true),
       ),
@@ -110,9 +103,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (confirmed != true || !mounted) return;
 
     try {
-      await ref.read(confirmWearUseCaseProvider).call(scored.outfit.id);
+      await ref.read(confirmWearUseCaseProvider).call(outfit.id);
       if (!mounted) return;
-      ref.read(isOutfitWornProvider.notifier).markWorn();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Outfit confirmed! Have a great day 👗'),
@@ -131,27 +123,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 // ─── Main body ────────────────────────────────────────────────────────────────
 
 class _HomeBody extends ConsumerWidget {
-  final OutfitGenerationResult result;
+  final List<OutfitModel> outfits;
   final WeatherData? weather;
   final CalendarEventType eventType;
-  final bool isWorn;
-  final bool isRegenerating;
+  final bool isAddingMore;
   final bool calendarGranted;
   final String greeting;
   final String formattedDate;
-  final VoidCallback onRegenerate;
-  final Future<void> Function(ScoredOutfit, List<ClothingItemModel>) onWearToday;
+  final VoidCallback onAddMore;
+  final Future<void> Function(OutfitModel, List<ClothingItemModel>) onWearToday;
 
   const _HomeBody({
-    required this.result,
+    required this.outfits,
     required this.weather,
     required this.eventType,
-    required this.isWorn,
-    required this.isRegenerating,
+    required this.isAddingMore,
     required this.calendarGranted,
     required this.greeting,
     required this.formattedDate,
-    required this.onRegenerate,
+    required this.onAddMore,
     required this.onWearToday,
   });
 
@@ -161,26 +151,9 @@ class _HomeBody extends ConsumerWidget {
     final wardrobe = wardrobeAsync.asData?.value ?? [];
     final itemsById = {for (final i in wardrobe) i.id: i};
 
-    final selected = ref.watch(selectedOutfitProvider) ?? result.primary;
-
-    // Initialise selectedOutfitProvider on first data load.
-    if (ref.read(selectedOutfitProvider) == null && result.primary != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(selectedOutfitProvider.notifier).select(result.primary);
-      });
-    }
-
-    if (result.isEmpty) {
+    if (outfits.isEmpty) {
       return const Center(child: EmptyWardrobeBanner());
     }
-
-    final scoredOutfit = selected ?? result.primary!;
-    final items = _resolveItems(scoredOutfit, itemsById);
-
-    // Alternatives exclude the currently selected outfit.
-    final alternatives = result.allOutfits
-        .where((o) => o.outfit.id != scoredOutfit.outfit.id)
-        .toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -209,80 +182,51 @@ class _HomeBody extends ConsumerWidget {
           ContextBanner(weather: weather, eventType: eventType),
           const SizedBox(height: 20),
 
-          // ③ Section label
+          // ③ Section label + add-more button
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "Today's Outfit",
+                "Today's Outfits",
                 style: Theme.of(context)
                     .textTheme
                     .titleMedium
                     ?.copyWith(fontWeight: FontWeight.bold),
               ),
-              isRegenerating
+              isAddingMore
                   ? const SizedBox(
                       width: 24,
                       height: 24,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : IconButton(
-                      icon: const Icon(Icons.refresh),
-                      onPressed: onRegenerate,
+                      icon: const Icon(Icons.add),
+                      tooltip: 'Generate another outfit',
+                      onPressed: onAddMore,
                     ),
             ],
           ),
           const SizedBox(height: 8),
 
-          // ④ Outfit card
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            child: OutfitCard(
-              key: ValueKey(scoredOutfit.outfit.id),
-              scoredOutfit: scoredOutfit,
-              items: items,
-              isWorn: isWorn,
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // ⑤ Alternatives label
-          Text(
-            'Alternatives',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Colors.grey.shade600,
-                ),
-          ),
-          const SizedBox(height: 8),
-
-          // ⑥ Alternatives carousel
-          AlternativesCarousel(
-            alternatives: alternatives,
-            itemsById: itemsById,
-            selectedId: scoredOutfit.outfit.id,
-            onOutfitSelected: (alt) {
-              ref.read(selectedOutfitProvider.notifier).select(alt);
-            },
-          ),
-          const SizedBox(height: 20),
-
-          // ⑦ Wear today button
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: isWorn ? null : () => onWearToday(scoredOutfit, items),
-              icon: Icon(isWorn ? Icons.check : Icons.checkroom_outlined),
-              label: Text(isWorn ? 'Worn Today' : 'Wear This Today'),
-            ),
-          ),
+          // ④ Outfit list
+          ...outfits.map((outfit) {
+            final items = _resolveItems(outfit, itemsById);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: _OutfitListItem(
+                outfit: outfit,
+                items: items,
+                onWearToday: () => onWearToday(outfit, items),
+              ),
+            );
+          }),
         ],
       ),
     );
   }
 
   List<ClothingItemModel> _resolveItems(
-      ScoredOutfit scored, Map<String, ClothingItemModel> byId) {
-    final outfit = scored.outfit;
+      OutfitModel outfit, Map<String, ClothingItemModel> byId) {
     return [
       if (byId[outfit.topId] != null) byId[outfit.topId]!,
       if (byId[outfit.bottomId] != null) byId[outfit.bottomId]!,
@@ -290,6 +234,41 @@ class _HomeBody extends ConsumerWidget {
       if (outfit.outerwearId != null && byId[outfit.outerwearId!] != null)
         byId[outfit.outerwearId!]!,
     ];
+  }
+}
+
+// ─── Outfit list item ─────────────────────────────────────────────────────────
+
+/// An [OutfitCard] combined with a per-outfit "Wear This Today" button.
+class _OutfitListItem extends StatelessWidget {
+  final OutfitModel outfit;
+  final List<ClothingItemModel> items;
+  final VoidCallback onWearToday;
+
+  const _OutfitListItem({
+    required this.outfit,
+    required this.items,
+    required this.onWearToday,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        OutfitCard(
+          scoredOutfit: ScoredOutfit.fromModel(outfit),
+          items: items,
+          isWorn: outfit.wasWorn,
+        ),
+        const SizedBox(height: 8),
+        FilledButton.icon(
+          onPressed: outfit.wasWorn ? null : onWearToday,
+          icon: Icon(outfit.wasWorn ? Icons.check : Icons.checkroom_outlined),
+          label: Text(outfit.wasWorn ? 'Worn Today' : 'Wear This Today'),
+        ),
+      ],
+    );
   }
 }
 
@@ -351,7 +330,7 @@ class _Header extends StatelessWidget {
 
 // ─── Loading state ────────────────────────────────────────────────────────────
 
-/// Full-screen shimmer skeleton shown while the outfit is being generated.
+/// Full-screen shimmer skeleton shown while outfits are being generated.
 class _HomeLoadingState extends StatelessWidget {
   const _HomeLoadingState();
 
@@ -365,7 +344,6 @@ class _HomeLoadingState extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header shimmer
             Row(
               children: [
                 Column(
@@ -379,22 +357,11 @@ class _HomeLoadingState extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 20),
-            // Context banner shimmer
             _shimmerBox(double.infinity, 40, radius: 24),
             const SizedBox(height: 20),
-            // Outfit card shimmer
             _shimmerBox(double.infinity, 300, radius: 20),
-            const SizedBox(height: 20),
-            // Alternatives shimmer
-            Row(
-              children: [
-                _shimmerBox(110, 150, radius: 16),
-                const SizedBox(width: 10),
-                _shimmerBox(110, 150, radius: 16),
-                const SizedBox(width: 10),
-                _shimmerBox(110, 150, radius: 16),
-              ],
-            ),
+            const SizedBox(height: 16),
+            _shimmerBox(double.infinity, 300, radius: 20),
           ],
         ),
       ),
