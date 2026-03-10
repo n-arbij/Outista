@@ -6,6 +6,7 @@ import '../../../data/models/outfit_model.dart';
 import '../models/outfit_context.dart';
 import '../models/outfit_generation_result.dart';
 import '../models/scored_outfit.dart';
+import 'archetype_engine.dart';
 
 export '../models/outfit_context.dart';
 export '../models/outfit_generation_result.dart';
@@ -13,15 +14,16 @@ export '../models/scored_outfit.dart';
 
 /// Deterministic outfit scoring engine.
 ///
-/// Iterates every tops × bottoms × shoes × (no outerwear | outerwear)
-/// combination, scores each against the given [OutfitContext], filters
-/// season-conflicting combos, sorts descending, and returns the top
-/// [maxResults] [ScoredOutfit]s.
+/// Delegates combination generation to [ArchetypeEngine], scores each
+/// [OutfitCombination] against the given [OutfitContext], sorts descending,
+/// and returns the top [maxResults] [ScoredOutfit]s.
 ///
 /// This class has no Flutter dependencies and is fully testable without
 /// a widget tree.
 class OutfitScoringEngine {
-  const OutfitScoringEngine();
+  final ArchetypeEngine archetypeEngine;
+
+  const OutfitScoringEngine({this.archetypeEngine = const ArchetypeEngine()});
 
   static const _uuid = Uuid();
 
@@ -29,44 +31,26 @@ class OutfitScoringEngine {
 
   /// Returns up to [maxResults] ranked [ScoredOutfit]s built from [wardrobe].
   ///
-  /// Returns an empty list when any required category (tops, bottoms, shoes)
-  /// is absent from [wardrobe].
+  /// Delegates combination generation to [archetypeEngine]. Returns an empty
+  /// list when no valid combinations exist.
   List<ScoredOutfit> generateOutfits({
     required List<ClothingItemModel> wardrobe,
     required OutfitContext context,
     int maxResults = 4,
   }) {
-    final tops =
-        wardrobe.where((i) => i.category == ClothingCategory.top).toList();
-    final bottoms =
-        wardrobe.where((i) => i.category == ClothingCategory.bottom).toList();
-    final shoes =
-        wardrobe.where((i) => i.category == ClothingCategory.shoes).toList();
-    final outerwears = wardrobe
-        .where((i) => i.category == ClothingCategory.outerwear)
+    final archetypes = archetypeEngine.detectAvailableArchetypes(wardrobe);
+    if (archetypes.isEmpty) return [];
+
+    final allCombinations = archetypes
+        .expand((a) => archetypeEngine.generateForArchetype(
+              wardrobe: wardrobe,
+              archetype: a,
+            ))
         .toList();
 
-    if (tops.isEmpty || bottoms.isEmpty || shoes.isEmpty) return [];
-
-    final results = <ScoredOutfit>[];
-
-    for (final top in tops) {
-      for (final bottom in bottoms) {
-        for (final shoe in shoes) {
-          final outerwearOptions = <ClothingItemModel?>[null, ...outerwears];
-          for (final outerwear in outerwearOptions) {
-            final items = [
-              top,
-              bottom,
-              shoe,
-              if (outerwear != null) outerwear,
-            ];
-            if (_hasSeasonConflict(items)) continue;
-            results.add(_buildScoredOutfit(items, context));
-          }
-        }
-      }
-    }
+    final results = allCombinations
+        .map((combo) => _buildScoredOutfit(combo, context))
+        .toList();
 
     results.sort((a, b) => b.totalScore.compareTo(a.totalScore));
     return results.take(maxResults).toList();
@@ -86,6 +70,7 @@ class OutfitScoringEngine {
         wardrobe.where((i) => i.category == ClothingCategory.bottom).toList();
     final shoes =
         wardrobe.where((i) => i.category == ClothingCategory.shoes).toList();
+    // Keep the existing combination count formula for backward compatibility.
     final combos = tops.length * bottoms.length * shoes.length;
 
     final scored =
@@ -103,28 +88,29 @@ class OutfitScoringEngine {
   // ─── Private helpers ─────────────────────────────────────────────────────────
 
   ScoredOutfit _buildScoredOutfit(
-    List<ClothingItemModel> items,
+    OutfitCombination combination,
     OutfitContext context,
   ) {
+    final items = _itemsFromCombination(combination);
+
     final seasonScore =
         _calculateSeasonScore(items, context.weatherSeason);
     final occasionScore =
-        _calculateOccasionScore(items, context.eventType);
+        _calculateOccasionScore(combination, context.eventType);
     final usageScore =
         _calculateUsageScore(items, context.date);
+    final shoePairingBonus =
+        _calculateShoePairingBonus(combination, context.eventType);
+    final coordSetBonus = _calculateCoordSetBonus(combination);
     final bonusScore =
-        _calculateBonusScore(items, context.date);
+        _calculateBonusScore(items, context.date) +
+        shoePairingBonus +
+        coordSetBonus;
 
     final total = seasonScore + occasionScore + usageScore + bonusScore;
 
-    final top = items.firstWhere((i) => i.category == ClothingCategory.top);
-    final bottom =
-        items.firstWhere((i) => i.category == ClothingCategory.bottom);
-    final shoe =
-        items.firstWhere((i) => i.category == ClothingCategory.shoes);
-    final outerwear = items
-        .where((i) => i.category == ClothingCategory.outerwear)
-        .firstOrNull;
+    final topId = combination.top?.id ?? combination.onePiece!.id;
+    final bottomId = combination.bottom?.id ?? combination.onePiece!.id;
 
     return ScoredOutfit(
       totalScore: total,
@@ -134,16 +120,39 @@ class OutfitScoringEngine {
       bonusScore: bonusScore,
       outfit: OutfitModel(
         id: _uuid.v4(),
-        topId: top.id,
-        bottomId: bottom.id,
-        shoesId: shoe.id,
-        outerwearId: outerwear?.id,
+        topId: topId,
+        bottomId: bottomId,
+        shoesId: combination.shoes.id,
+        outerwearId: combination.outerwear?.id,
+        onePieceId: combination.onePiece?.id,
+        archetype: combination.archetype,
         score: total,
         occasionContext: context.eventType.name,
         weatherContext: context.weatherSeason.name,
         generatedAt: context.date,
       ),
     );
+  }
+
+  /// Extracts the scoring item list from a [combination].
+  ///
+  /// For one-piece archetypes: `[onePiece, shoes, (outerwear?)]`.
+  /// For separates archetypes: `[top, bottom, shoes, (outerwear?)]`.
+  List<ClothingItemModel> _itemsFromCombination(
+      OutfitCombination combination) {
+    if (combination.onePiece != null) {
+      return [
+        combination.onePiece!,
+        combination.shoes,
+        if (combination.outerwear != null) combination.outerwear!,
+      ];
+    }
+    return [
+      combination.top!,
+      combination.bottom!,
+      combination.shoes,
+      if (combination.outerwear != null) combination.outerwear!,
+    ];
   }
 
   /// Computes the season component (0–40 pts) averaged across all items.
@@ -156,9 +165,11 @@ class OutfitScoringEngine {
     return avg * AppConstants.seasonMatchScore;
   }
 
-  /// Computes the occasion component (0–35 pts) averaged across all items.
+  /// Computes the occasion component (0–35 pts) averaged across the
+  /// relevant items for the combination's archetype.
   double _calculateOccasionScore(
-      List<ClothingItemModel> items, CalendarEventType event) {
+      OutfitCombination combination, CalendarEventType event) {
+    final items = _itemsFromCombination(combination);
     if (items.isEmpty) return 0;
     final avg = items
             .map((i) => _itemOccasionScore(i, event))
@@ -208,6 +219,32 @@ class OutfitScoringEngine {
     }
 
     return emotionalBonus + diversityBonus;
+  }
+
+  /// Awards a bonus for intentional shoe-formality pairings.
+  ///
+  /// Only awarded when the shoe's [ShoeFormality] is explicitly set (non-null),
+  /// so existing items without formality data are unaffected.
+  double _calculateShoePairingBonus(
+      OutfitCombination combination, CalendarEventType event) {
+    final shoeFormality = combination.shoes.shoeFormality;
+    if (shoeFormality == null) return 0;
+
+    switch (event) {
+      case CalendarEventType.work:
+        return shoeFormality == ShoeFormality.formal ? 5 : 0;
+      case CalendarEventType.social:
+        return shoeFormality == ShoeFormality.formal ? 4 : 0;
+      case CalendarEventType.casual:
+        return shoeFormality == ShoeFormality.casual ? 3 : 0;
+      case CalendarEventType.unknown:
+        return 0;
+    }
+  }
+
+  /// Awards a coherence bonus for coord-set outfits.
+  double _calculateCoordSetBonus(OutfitCombination combination) {
+    return combination.archetype == OutfitArchetype.coordSet ? 8 : 0;
   }
 
   /// Returns `true` when the combination has a season conflict —

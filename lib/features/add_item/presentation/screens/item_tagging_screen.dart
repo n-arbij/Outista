@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/constants/app_enums.dart';
 import '../../../../core/constants/app_routes.dart';
 import '../../../../features/add_item/domain/usecases/add_item_usecase.dart';
 import '../../../../shared/providers/add_item_providers.dart';
@@ -49,6 +50,10 @@ class _ItemTaggingScreenState extends ConsumerState<ItemTaggingScreen> {
           season: formState.season!,
           occasion: formState.occasion!,
           emotionalTag: formState.emotionalTag,
+          subcategory: formState.subcategory ?? ClothingSubcategory.none,
+          shoeFormality: formState.shoeFormality,
+          setId: formState.setId,
+          isCoordPiece: formState.isCoordPiece,
         ),
       );
 

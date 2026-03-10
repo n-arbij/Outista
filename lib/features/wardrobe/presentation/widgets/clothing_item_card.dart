@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_enums.dart';
 import '../../../../data/models/clothing_item_model.dart';
 
 /// Displays a single clothing item as a card.
@@ -49,7 +50,7 @@ class ClothingItemCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Image + usage badge
+        // Image + badges
         Expanded(
           flex: 7,
           child: Stack(
@@ -67,6 +68,18 @@ class ClothingItemCard extends StatelessWidget {
                 right: 8,
                 child: _buildUsageBadge(),
               ),
+              if (item.isOnePiece)
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: _buildOnePieceBadge(),
+                ),
+              if (item.setId != null)
+                Positioned(
+                  bottom: 8,
+                  left: 8,
+                  child: _buildCoordSetBadge(),
+                ),
             ],
           ),
         ),
@@ -75,11 +88,22 @@ class ClothingItemCard extends StatelessWidget {
           flex: 3,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildChip(item.category.label),
-                const SizedBox(width: 4),
-                _buildChip(item.occasion.label),
+                Row(
+                  children: [
+                    _buildChip(_categoryLabel()),
+                    const SizedBox(width: 4),
+                    _buildChip(item.occasion.label),
+                  ],
+                ),
+                if (item.category == ClothingCategory.shoes &&
+                    item.shoeFormality != null) ...[
+                  const SizedBox(height: 2),
+                  _buildFormalityChip(item.shoeFormality!),
+                ],
               ],
             ),
           ),
@@ -123,7 +147,7 @@ class ClothingItemCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    item.category.label,
+                    _categoryLabel(),
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
@@ -135,8 +159,17 @@ class ClothingItemCard extends StatelessWidget {
                       _buildChip(item.season.label, small: true),
                       const SizedBox(width: 4),
                       _buildChip(item.occasion.label, small: true),
+                      if (item.category == ClothingCategory.shoes &&
+                          item.shoeFormality != null) ...[
+                        const SizedBox(width: 4),
+                        _buildFormalityChip(item.shoeFormality!, small: true),
+                      ],
                     ],
                   ),
+                  if (item.setId != null) ...[
+                    const SizedBox(height: 4),
+                    _buildCoordSetBadge(small: true),
+                  ],
                 ],
               ),
             ),
@@ -146,13 +179,21 @@ class ClothingItemCard extends StatelessWidget {
     );
   }
 
+  /// Returns the display label for the item's category/subcategory.
+  String _categoryLabel() {
+    if (item.subcategory != ClothingSubcategory.none) {
+      return item.subcategory.label;
+    }
+    return item.category.label;
+  }
+
   Widget _buildImage({
     required BoxFit fit,
     double? width,
     double? height,
     BorderRadius? borderRadius,
   }) {
-    final image = ClipRRect(
+    return ClipRRect(
       borderRadius: borderRadius ?? BorderRadius.zero,
       child: Image(
         image: FileImage(File(item.imagePath)),
@@ -171,7 +212,6 @@ class ClothingItemCard extends StatelessWidget {
         ),
       ),
     );
-    return image;
   }
 
   Widget _buildUsageBadge() {
@@ -189,6 +229,90 @@ class ClothingItemCard extends StatelessWidget {
           color: Colors.white,
           fontSize: 10,
           fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  /// Badge shown on one-piece items.
+  Widget _buildOnePieceBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.purple.shade100,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        'ONE PIECE',
+        style: TextStyle(
+          fontSize: 9,
+          color: Colors.purple.shade700,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
+  /// Badge shown on coord-set items.
+  Widget _buildCoordSetBadge({bool small = false}) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: small ? 4 : 6,
+        vertical: small ? 1 : 2,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.teal.shade50,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.teal.shade200),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.link, size: small ? 10 : 12, color: Colors.teal.shade600),
+          const SizedBox(width: 2),
+          Text(
+            'Co-ord',
+            style: TextStyle(
+              fontSize: small ? 9 : 10,
+              color: Colors.teal.shade700,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormalityChip(ShoeFormality formality, {bool small = false}) {
+    final Color bgColor;
+    final Color textColor;
+    switch (formality) {
+      case ShoeFormality.formal:
+        bgColor = Colors.blue.shade50;
+        textColor = Colors.blue.shade700;
+      case ShoeFormality.casual:
+        bgColor = Colors.green.shade50;
+        textColor = Colors.green.shade700;
+      case ShoeFormality.sporty:
+        bgColor = Colors.orange.shade50;
+        textColor = Colors.orange.shade700;
+    }
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: small ? 6 : 8,
+        vertical: small ? 2 : 3,
+      ),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        formality.label,
+        style: TextStyle(
+          fontSize: small ? 10 : 11,
+          color: textColor,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );

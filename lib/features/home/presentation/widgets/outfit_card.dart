@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_enums.dart';
 import '../../../../data/models/clothing_item_model.dart';
 import '../../../../features/outfit_engine/models/scored_outfit.dart';
 import 'outfit_item_tile.dart';
@@ -11,7 +12,7 @@ class OutfitCard extends StatelessWidget {
   /// The scored outfit to display.
   final ScoredOutfit scoredOutfit;
 
-  /// Resolved clothing items in display order: top, bottom, shoes, outerwear.
+  /// Resolved clothing items in display order.
   final List<ClothingItemModel> items;
 
   /// Whether today's outfit has already been confirmed as worn.
@@ -47,14 +48,20 @@ class OutfitCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Item tiles ─────────────────────────────────────────────
-                ...items.map((item) => _tileWithDivider(item, items.last)),
+                // ── Item tiles ───────────────────────────────────────────────
+                ..._buildItemTiles(outfit.archetype),
                 const SizedBox(height: 12),
-                // ── Footer row ─────────────────────────────────────────────
+                // ── Footer row ───────────────────────────────────────────────
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _scoreChip(scoredOutfit.totalScore),
+                    Row(
+                      children: [
+                        _scoreChip(scoredOutfit.totalScore),
+                        const SizedBox(width: 6),
+                        _archetypeChip(outfit.archetype),
+                      ],
+                    ),
                     Text(
                       generatedLabel,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -67,7 +74,7 @@ class OutfitCard extends StatelessWidget {
             ),
           ),
         ),
-        // ── Worn overlay chip ───────────────────────────────────────────────
+        // ── Worn overlay chip ─────────────────────────────────────────────────
         if (isWorn)
           Positioned(
             top: 12,
@@ -93,14 +100,50 @@ class OutfitCard extends StatelessWidget {
     );
   }
 
-  Widget _tileWithDivider(ClothingItemModel item, ClothingItemModel last) {
-    return Column(
-      children: [
-        OutfitItemTile(item: item),
-        if (item != last)
-          const Divider(height: 1, indent: 56, thickness: 0.5),
-      ],
-    );
+  List<Widget> _buildItemTiles(OutfitArchetype archetype) {
+    if (items.isEmpty) return [];
+    final result = <Widget>[];
+
+    if (archetype == OutfitArchetype.coordSet && items.length >= 2) {
+      // Show first two items with a link indicator between them.
+      result.add(OutfitItemTile(item: items[0]));
+      result.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 16),
+          child: Row(
+            children: [
+              const SizedBox(width: 40),
+              Icon(Icons.link, size: 14, color: Colors.teal.shade400),
+              const SizedBox(width: 4),
+              Text(
+                'Co-ord Set',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.teal.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      for (int i = 1; i < items.length; i++) {
+        result.add(OutfitItemTile(item: items[i]));
+        if (i < items.length - 1) {
+          result.add(const Divider(height: 1, indent: 56, thickness: 0.5));
+        }
+      }
+      return result;
+    }
+
+    // Default: render items with dividers.
+    for (int i = 0; i < items.length; i++) {
+      result.add(OutfitItemTile(item: items[i]));
+      if (i < items.length - 1) {
+        result.add(const Divider(height: 1, indent: 56, thickness: 0.5));
+      }
+    }
+    return result;
   }
 
   Widget _scoreChip(double score) {
@@ -113,6 +156,42 @@ class OutfitCard extends StatelessWidget {
       child: Text(
         '⭐ ${score.toStringAsFixed(0)} pts',
         style: const TextStyle(fontSize: 12, color: Colors.black54),
+      ),
+    );
+  }
+
+  /// Small pill chip showing the outfit archetype.
+  Widget _archetypeChip(OutfitArchetype archetype) {
+    final Color bgColor;
+    final Color textColor;
+    switch (archetype) {
+      case OutfitArchetype.separates:
+        bgColor = Colors.grey.shade200;
+        textColor = Colors.grey.shade700;
+      case OutfitArchetype.onePiece:
+      case OutfitArchetype.onePieceLayered:
+        bgColor = Colors.purple.shade100;
+        textColor = Colors.purple.shade700;
+      case OutfitArchetype.coordSet:
+        bgColor = Colors.teal.shade50;
+        textColor = Colors.teal.shade700;
+      case OutfitArchetype.smartCasual:
+        bgColor = Colors.blue.shade50;
+        textColor = Colors.blue.shade700;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        archetype.label,
+        style: TextStyle(
+          fontSize: 11,
+          color: textColor,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

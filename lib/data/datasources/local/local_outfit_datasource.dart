@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/constants/app_enums.dart';
 import '../../../core/errors/data_exception.dart';
 import '../../database/app_database.dart';
 import '../../models/outfit_model.dart';
@@ -107,6 +108,8 @@ class LocalOutfitDatasource implements OutfitRepository {
             bottomId: outfit.bottomId,
             shoesId: outfit.shoesId,
             outerwearId: outfit.outerwearId,
+            onePieceId: outfit.onePieceId,
+            archetype: outfit.archetype,
             score: outfit.score,
             occasionContext: outfit.occasionContext,
             weatherContext: outfit.weatherContext,
@@ -270,6 +273,8 @@ class LocalOutfitDatasource implements OutfitRepository {
         bottomId: row.bottomId,
         shoesId: row.shoesId,
         outerwearId: row.outerwearId,
+        onePieceId: row.onePieceId,
+        archetype: OutfitArchetype.values.byName(row.archetype),
         score: row.score,
         occasionContext: row.occasionContext,
         weatherContext: row.weatherContext,
@@ -285,6 +290,8 @@ class LocalOutfitDatasource implements OutfitRepository {
         bottomId: model.bottomId,
         shoesId: model.shoesId,
         outerwearId: Value(model.outerwearId),
+        onePieceId: Value(model.onePieceId),
+        archetype: Value(model.archetype.name),
         score: model.score,
         occasionContext: model.occasionContext,
         weatherContext: model.weatherContext,
@@ -293,17 +300,17 @@ class LocalOutfitDatasource implements OutfitRepository {
         isUserAdded: Value(model.isUserAdded),
       );
 
-  List<String> _itemIdsOf(OutfitModel model) => [
+  List<String> _itemIdsOf(OutfitModel model) => {
         model.topId,
         model.bottomId,
         model.shoesId,
         if (model.outerwearId != null) model.outerwearId!,
-      ];
+      }.toList();
 
-  List<String> _outfitRowItemIds(Outfit row) => [
+  List<String> _outfitRowItemIds(Outfit row) => {
         row.topId,
         row.bottomId,
         row.shoesId,
         if (row.outerwearId != null) row.outerwearId!,
-      ];
+      }.toList();
 }

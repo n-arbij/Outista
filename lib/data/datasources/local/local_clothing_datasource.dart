@@ -228,6 +228,100 @@ class LocalClothingDatasource implements ClothingRepository {
     }
   }
 
+  /// Returns all items where [isOnePiece] is `true`, ordered newest first.
+  @override
+  Future<List<ClothingItemModel>> getOnePieceItems() async {
+    try {
+      final rows = await (_db.select(_db.clothingItems)
+            ..where((t) => t.isOnePiece.equals(true))
+            ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+          .get();
+      return rows.map(_rowToModel).toList();
+    } catch (e) {
+      assert(() {
+        debugPrint('[Outista] getOnePieceItems error: $e');
+        return true;
+      }());
+      throw DataException('Failed to get one-piece items', cause: e);
+    }
+  }
+
+  /// Returns all items that belong to the coord set [setId].
+  @override
+  Future<List<ClothingItemModel>> getItemsBySetId(String setId) async {
+    try {
+      final rows = await (_db.select(_db.clothingItems)
+            ..where((t) => t.setId.equals(setId)))
+          .get();
+      return rows.map(_rowToModel).toList();
+    } catch (e) {
+      assert(() {
+        debugPrint('[Outista] getItemsBySetId error: $e');
+        return true;
+      }());
+      throw DataException('Failed to get items for set $setId', cause: e);
+    }
+  }
+
+  /// Returns a map of `setId → items` for every coord set in the wardrobe.
+  @override
+  Future<Map<String, List<ClothingItemModel>>> getCoordSets() async {
+    try {
+      final rows = await (_db.select(_db.clothingItems)
+            ..where((t) => t.setId.isNotNull()))
+          .get();
+      final result = <String, List<ClothingItemModel>>{};
+      for (final row in rows) {
+        final model = _rowToModel(row);
+        result.putIfAbsent(model.setId!, () => []).add(model);
+      }
+      return result;
+    } catch (e) {
+      assert(() {
+        debugPrint('[Outista] getCoordSets error: $e');
+        return true;
+      }());
+      throw DataException('Failed to get coord sets', cause: e);
+    }
+  }
+
+  /// Links [itemId1] and [itemId2] into a new coord set atomically.
+  @override
+  Future<void> linkCoordSet(String itemId1, String itemId2) async {
+    try {
+      final newSetId = _uuid.v4();
+      await _db.transaction(() async {
+        for (final id in [itemId1, itemId2]) {
+          await (_db.update(_db.clothingItems)
+                ..where((t) => t.id.equals(id)))
+              .write(ClothingItemsCompanion(setId: Value(newSetId)));
+        }
+      });
+    } catch (e) {
+      assert(() {
+        debugPrint('[Outista] linkCoordSet error: $e');
+        return true;
+      }());
+      throw DataException('Failed to link coord set', cause: e);
+    }
+  }
+
+  /// Removes the coord-set membership of the item with [itemId].
+  @override
+  Future<void> unlinkCoordSet(String itemId) async {
+    try {
+      await (_db.update(_db.clothingItems)
+            ..where((t) => t.id.equals(itemId)))
+          .write(const ClothingItemsCompanion(setId: Value(null)));
+    } catch (e) {
+      assert(() {
+        debugPrint('[Outista] unlinkCoordSet error: $e');
+        return true;
+      }());
+      throw DataException('Failed to unlink coord set for $itemId', cause: e);
+    }
+  }
+
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
   ClothingItemModel _rowToModel(ClothingItem row) => ClothingItemModel(
@@ -240,6 +334,14 @@ class LocalClothingDatasource implements ClothingRepository {
         usageCount: row.usageCount,
         createdAt: row.createdAt,
         lastWornAt: row.lastWornAt,
+        subcategory: ClothingSubcategory.values.byName(row.subcategory),
+        shoeFormality: row.shoeFormality != null
+            ? ShoeFormality.values.byName(row.shoeFormality!)
+            : null,
+        setId: row.setId,
+        isOnePiece: row.isOnePiece,
+        replacesTop: row.replacesTop,
+        replacesBottom: row.replacesBottom,
       );
 
   ClothingItemsCompanion _modelToCompanion(ClothingItemModel item) =>
@@ -253,5 +355,11 @@ class LocalClothingDatasource implements ClothingRepository {
         usageCount: Value(item.usageCount),
         createdAt: Value(item.createdAt),
         lastWornAt: Value(item.lastWornAt),
+        subcategory: Value(item.subcategory.name),
+        shoeFormality: Value(item.shoeFormality?.name),
+        setId: Value(item.setId),
+        isOnePiece: Value(item.isOnePiece),
+        replacesTop: Value(item.replacesTop),
+        replacesBottom: Value(item.replacesBottom),
       );
 }

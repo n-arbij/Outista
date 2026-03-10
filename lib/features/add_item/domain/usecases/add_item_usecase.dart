@@ -13,12 +13,28 @@ class AddItemInput {
   final ClothingOccasion occasion;
   final EmotionalTag emotionalTag;
 
+  /// Subcategory within [category].
+  final ClothingSubcategory subcategory;
+
+  /// Formality of the shoe; only relevant when [category] is [ClothingCategory.shoes].
+  final ShoeFormality? shoeFormality;
+
+  /// Coord-set UUID; set when [isCoordPiece] is `true`.
+  final String? setId;
+
+  /// Whether this item is a piece of a co-ord set.
+  final bool isCoordPiece;
+
   const AddItemInput({
     required this.imagePath,
     required this.category,
     required this.season,
     required this.occasion,
     this.emotionalTag = EmotionalTag.none,
+    this.subcategory = ClothingSubcategory.none,
+    this.shoeFormality,
+    this.setId,
+    this.isCoordPiece = false,
   });
 }
 
@@ -41,6 +57,13 @@ class AddItemUseCase {
     try {
       final savedPath = await _imageStorage.saveImage(input.imagePath);
 
+      final isOnePiece = input.category == ClothingCategory.onePiece;
+      final replacesTop = isOnePiece;
+      final replacesBottom = isOnePiece;
+      final shoeFormality =
+          input.category == ClothingCategory.shoes ? input.shoeFormality : null;
+      final setId = input.isCoordPiece ? (input.setId ?? _uuid.v4()) : null;
+
       final model = ClothingItemModel(
         id: _uuid.v4(),
         imagePath: savedPath,
@@ -50,6 +73,12 @@ class AddItemUseCase {
         emotionalTag: input.emotionalTag,
         usageCount: 0,
         createdAt: DateTime.now(),
+        subcategory: input.subcategory,
+        shoeFormality: shoeFormality,
+        setId: setId,
+        isOnePiece: isOnePiece,
+        replacesTop: replacesTop,
+        replacesBottom: replacesBottom,
       );
 
       await _repository.addItem(model);

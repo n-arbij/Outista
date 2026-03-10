@@ -31,5 +31,5 @@ class AppConstants {
 
   // --- Database ---
   static const String databaseName = 'outista.db';
-  static const int databaseVersion = 2;
+  static const int databaseVersion = 3;
 }

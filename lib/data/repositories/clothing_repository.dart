@@ -24,4 +24,24 @@ abstract interface class ClothingRepository {
     String? season,
     String? occasion,
   });
+
+  /// Returns all items where [ClothingItemModel.isOnePiece] is `true`,
+  /// ordered newest first.
+  Future<List<ClothingItemModel>> getOnePieceItems();
+
+  /// Returns all items that belong to the coord set identified by [setId].
+  Future<List<ClothingItemModel>> getItemsBySetId(String setId);
+
+  /// Returns a map of `setId → items` for every coord set in the wardrobe.
+  ///
+  /// Only items with a non-null [ClothingItemModel.setId] are included.
+  Future<Map<String, List<ClothingItemModel>>> getCoordSets();
+
+  /// Links [itemId1] and [itemId2] into a new coord set by generating
+  /// a shared UUID and persisting it on both items atomically.
+  Future<void> linkCoordSet(String itemId1, String itemId2);
+
+  /// Removes the coord-set membership of the item with [itemId] by
+  /// setting its [ClothingItemModel.setId] to `null`.
+  Future<void> unlinkCoordSet(String itemId);
 }

@@ -20,7 +20,6 @@ import 'package:outista/shared/providers/context_awareness_providers.dart';
 import 'package:outista/shared/providers/home_providers.dart';
 import 'package:outista/shared/providers/outfit_engine_providers.dart';
 import 'package:outista/shared/providers/repository_providers.dart';
-
 // ─── Fake repository ──────────────────────────────────────────────────────────
 
 class _FakeOutfitRepository implements OutfitRepository {
@@ -31,7 +30,7 @@ class _FakeOutfitRepository implements OutfitRepository {
   @override
   Future<void> save(OutfitModel outfit) async {}
   @override
-  Future<void> saveAll(List<OutfitModel> outfits) async {}
+  Future<void> saveAll(List<OutfitModel> outfits, {bool isUserAdded = false}) async {}
   @override
   Future<List<OutfitModel>> getTodaysOutfits() async => [];
   @override
@@ -134,6 +133,11 @@ Widget _buildApp({
     ),
   ]);
 
+  // Pre-compute the outfits to stream so the home screen can display them.
+  final result = throwOnGenerate ? null : resultBuilder();
+  final outfitList =
+      result?.allOutfits.map((s) => s.outfit).toList() ?? <OutfitModel>[];
+
   return ProviderScope(
     overrides: [
       outfitGenerationResultProvider.overrideWith((ref) async {
@@ -150,6 +154,12 @@ Widget _buildApp({
           .overrideWith((ref) => Stream.value(_wardrobe)),
       outfitRepositoryProvider
           .overrideWithValue(_FakeOutfitRepository()),
+      todaysOutfitsProvider.overrideWith((ref) {
+        if (throwOnGenerate) {
+          return Stream.error(Exception('Generation failed'));
+        }
+        return Stream.value(outfitList);
+      }),
       regenerateOutfitProvider.overrideWith(
         (ref) => () async => resultBuilder(),
       ),
@@ -224,11 +234,11 @@ void main() {
       expect(find.byType(OutfitCard), findsOneWidget);
     });
 
-    testWidgets('shows AlternativesCarousel section label when result has data',
+    testWidgets('shows OutfitCard section label when result has data',
         (tester) async {
       await tester.pumpWidget(_buildApp(resultBuilder: _result));
       await tester.pumpAndSettle();
-      expect(find.text('Alternatives'), findsOneWidget);
+      expect(find.text("Today's Outfits"), findsOneWidget);
     });
 
     testWidgets('tapping regenerate calls regenerateOutfitProvider',
@@ -249,6 +259,11 @@ void main() {
                 .overrideWith((ref) => Stream.value(_wardrobe)),
             outfitRepositoryProvider
                 .overrideWithValue(_FakeOutfitRepository()),
+            todaysOutfitsProvider.overrideWith(
+              (ref) => Stream.value(
+                _result().allOutfits.map((s) => s.outfit).toList(),
+              ),
+            ),
             regenerateOutfitProvider.overrideWith((ref) {
               return () async {
                 called = true;
@@ -260,7 +275,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.refresh));
+      await tester.tap(find.byIcon(Icons.add));
       await tester.pumpAndSettle();
       expect(called, isTrue);
     });

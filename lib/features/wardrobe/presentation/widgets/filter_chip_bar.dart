@@ -3,7 +3,8 @@ import '../../../../core/constants/app_enums.dart';
 
 /// Horizontally scrollable row of [FilterChip] widgets for category filtering.
 ///
-/// Renders an 'All' chip plus one chip per [ClothingCategory].
+/// Renders an 'All' chip plus one chip per [ClothingCategory] in display order:
+/// All, Top, Bottom, One Piece, Shoes, Outerwear.
 /// Calls [onFilterChanged] with `null` when 'All' is selected.
 class FilterChipBar extends StatelessWidget {
   /// Currently active filter, or `null` if 'All' is selected.
@@ -20,6 +21,15 @@ class FilterChipBar extends StatelessWidget {
 
   static const _accent = Color(0xFF4A90D9);
 
+  /// Display order for category chips.
+  static const _displayOrder = [
+    ClothingCategory.top,
+    ClothingCategory.bottom,
+    ClothingCategory.onePiece,
+    ClothingCategory.shoes,
+    ClothingCategory.outerwear,
+  ];
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -28,8 +38,12 @@ class FilterChipBar extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
-          _chip(label: 'All', isSelected: activeFilter == null, onTap: () => onFilterChanged(null)),
-          ...ClothingCategory.values.map(
+          _chip(
+            label: 'All',
+            isSelected: activeFilter == null,
+            onTap: () => onFilterChanged(null),
+          ),
+          ..._displayOrder.map(
             (cat) => _chip(
               label: cat.label,
               isSelected: activeFilter == cat,

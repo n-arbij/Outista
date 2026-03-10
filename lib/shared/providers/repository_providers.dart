@@ -49,6 +49,5 @@ final todaysOutfitProvider = StreamProvider<OutfitModel?>((ref) {
 
 /// Reactive stream of all outfits generated today, ordered by score descending.
 final todaysOutfitsProvider = StreamProvider<List<OutfitModel>>((ref) {
-  return (ref.watch(outfitRepositoryProvider) as LocalOutfitDatasource)
-      .watchTodaysOutfits();
+  return ref.watch(outfitRepositoryProvider).watchTodaysOutfits();
 });

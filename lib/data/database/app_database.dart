@@ -30,6 +30,28 @@ class ClothingItems extends Table {
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get lastWornAt => dateTime().nullable()();
 
+  /// Serialised [ClothingSubcategory] enum name; defaults to 'none'.
+  TextColumn get subcategory =>
+      text().withDefault(const Constant('none'))();
+
+  /// Serialised [ShoeFormality] enum name; nullable (only for shoe items).
+  TextColumn get shoeFormality => text().nullable()();
+
+  /// UUID linking coord-set pieces together; null for ordinary items.
+  TextColumn get setId => text().nullable()();
+
+  /// Whether this item is a one-piece garment.
+  BoolColumn get isOnePiece =>
+      boolean().withDefault(const Constant(false))();
+
+  /// Whether this item replaces the top slot in an outfit.
+  BoolColumn get replacesTop =>
+      boolean().withDefault(const Constant(false))();
+
+  /// Whether this item replaces the bottom slot in an outfit.
+  BoolColumn get replacesBottom =>
+      boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -46,6 +68,12 @@ class Outfits extends Table {
   @ReferenceName('outerwearOutfitsRefs')
   TextColumn get outerwearId =>
       text().references(ClothingItems, #id).nullable()();
+
+  /// The one-piece garment ID for one-piece archetypes; null for separates.
+  @ReferenceName('onePieceOutfitsRefs')
+  TextColumn get onePieceId =>
+      text().references(ClothingItems, #id).nullable()();
+
   RealColumn get score => real()();
 
   /// Serialised [CalendarEventType] enum name.
@@ -61,6 +89,10 @@ class Outfits extends Table {
   /// `false` = machine-generated on app load; protected from deletion.
   BoolColumn get isUserAdded =>
       boolean().withDefault(const Constant(false))();
+
+  /// Serialised [OutfitArchetype] enum name; defaults to 'separates'.
+  TextColumn get archetype =>
+      text().withDefault(const Constant('separates'))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -97,6 +129,16 @@ class AppDatabase extends _$AppDatabase {
         onUpgrade: (m, from, to) async {
           if (from < 2) {
             await m.addColumn(outfits, outfits.isUserAdded);
+          }
+          if (from < 3) {
+            await m.addColumn(clothingItems, clothingItems.subcategory);
+            await m.addColumn(clothingItems, clothingItems.shoeFormality);
+            await m.addColumn(clothingItems, clothingItems.setId);
+            await m.addColumn(clothingItems, clothingItems.isOnePiece);
+            await m.addColumn(clothingItems, clothingItems.replacesTop);
+            await m.addColumn(clothingItems, clothingItems.replacesBottom);
+            await m.addColumn(outfits, outfits.onePieceId);
+            await m.addColumn(outfits, outfits.archetype);
           }
         },
       );

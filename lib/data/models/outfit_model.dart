@@ -1,3 +1,5 @@
+import '../../core/constants/app_enums.dart';
+
 /// Domain model representing a generated outfit combination.
 class OutfitModel {
   final String id;
@@ -12,6 +14,18 @@ class OutfitModel {
   final bool wasWorn;
   final bool isUserAdded;
 
+  /// The ID of the one-piece garment, when [archetype] is
+  /// [OutfitArchetype.onePiece] or [OutfitArchetype.onePieceLayered].
+  ///
+  /// `null` for separates-based outfits.
+  final String? onePieceId;
+
+  /// Structural archetype of this outfit.
+  ///
+  /// Defaults to [OutfitArchetype.separates] for outfits generated before
+  /// archetypes were introduced.
+  final OutfitArchetype archetype;
+
   const OutfitModel({
     required this.id,
     required this.topId,
@@ -24,5 +38,10 @@ class OutfitModel {
     required this.generatedAt,
     this.wasWorn = false,
     this.isUserAdded = false,
+    this.onePieceId,
+    this.archetype = OutfitArchetype.separates,
   });
+
+  /// `true` when this outfit is built around a single one-piece garment.
+  bool get isOnePieceOutfit => onePieceId != null;
 }
