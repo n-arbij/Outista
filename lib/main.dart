@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/router_service.dart';
+import 'core/services/seed_data.dart';
 import 'data/database/app_database.dart';
 import 'shared/providers/database_provider.dart';
 
@@ -23,6 +24,9 @@ Future<void> main() async {
   final db = AppDatabase();
   // Warm up the database connection before rendering.
   await db.customSelect('SELECT 1').get();
+  
+  // Seed sample data
+  await SeedData.seedSampleItems(db);
 
   runApp(
     ProviderScope(
